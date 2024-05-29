@@ -1,0 +1,130 @@
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <string>
+
+class Interpreter {
+public:
+    Interpreter(const std::string& sourcePath = "")
+    {
+        if (!sourcePath.empty()) {
+            if (!loadProgramFromFile(sourcePath)) {
+                std::cerr << "Error: Failed to load the program from file: " << sourcePath << std::endl;
+                return;
+            }
+        } else {
+            // Initialize the default program 
+            program = ">++++++++[<+++++++++>-]<.>++++[<+++++++>-]<+.+++++++..+++.>>++++++[<+++++++>-]<++.------------.>++++++[<+++++++++>-]<+.<.+++.------.--------.>>>++++[<++++++++>-]<+.";
+        }
+        
+        // Initialize the first cell
+        cells.push_back(0);
+        cell_index = 0;
+    }
+
+    void execute() {
+        size_t pc = 0; 
+        while (pc < program.size()) {
+            executeInstruction(program[pc], pc);
+        }
+    }
+
+private:
+    std::vector<int> cells;
+    size_t cell_index;
+    std::string program;
+
+    bool loadProgramFromFile(const std::string& filePath) {
+        std::ifstream file(filePath);
+        if (!file.is_open()) {
+            return false;
+        }
+        program = std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        file.close();
+        return true;
+    }
+
+    void executeInstruction(char instruction, size_t& pc) {
+        switch (instruction) {
+            case '>':
+                // Move to the right cell, creating one if needed
+                if (cell_index + 1 >= cells.size()) {
+                    cells.push_back(0);
+                }
+                cell_index++;
+                break;
+            case '<':
+                // Move to the left cell
+                if (cell_index == 0) {
+                    std::cerr << "Error: Tried to move beyond the leftmost cell." << std::endl;
+                    return;
+                }
+                cell_index--;
+                break;
+            case '+':
+                // Increment the value of the current cell
+                cells[cell_index]++;
+                break;
+            case '-':
+                // Decrement the value of the current cell
+                cells[cell_index]--;
+                break;
+            case '[':
+                // If the current cell value is 0, jump to the instruction after the corresponding ']'
+                if (cells[cell_index] == 0) {
+                    int loop = 1;
+                    while (loop > 0) {
+                        pc++;
+                        if (program[pc] == '[') loop++;
+                        else if (program[pc] == ']') loop--;
+                    }
+                }
+                break;
+            case ']':
+                // If the current cell value is not 0, jump back to the instruction after the corresponding '['
+                if (cells[cell_index] != 0) {
+                    int loop = 1;
+                    while (loop > 0) {
+                        pc--;
+                        if (program[pc] == '[') loop--;
+                        else if (program[pc] == ']') loop++;
+                    }
+                }
+                break;
+            case '.':
+                // Output the current cell's value as an ASCII character
+                {
+                    int character = cells[cell_index];
+                    if (character < 0 || character > 127) {
+                        std::cerr << "Error: ASCII value must be between 0 and 127." << std::endl;
+                        return;
+                    }
+                    std::cout << static_cast<char>(character);
+                }
+                break;
+            case ',':
+                // Input an integer and store it in the current cell
+                {
+                    int input;
+                    std::cin >> input;
+                    cells[cell_index] = input;
+                }
+                break;
+            default:
+                // Invalid instruction, skip
+                break;
+        }
+        pc++;
+    }
+};
+
+int main() {
+    std::cout << "Enter the path to the source file (or leave blank to use the default program): ";
+    std::string sourcePath;
+    std::getline(std::cin, sourcePath);
+
+    Interpreter interpreter(sourcePath);
+    interpreter.execute(); 
+    
+    return 0;
+}
